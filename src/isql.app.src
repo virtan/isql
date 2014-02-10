@@ -1,0 +1,7 @@
+{application, isql,
+        [{description, "Erlang MySQL client application"},
+         {vsn, "0.0.0"},
+         {registered, [isql_sup, isql]},
+         {applications, [kernel,stdlib]},
+	 {env, []},
+	 {mod, {isql_app, []}}]}.
