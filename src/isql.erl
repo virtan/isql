@@ -18,15 +18,8 @@
          send_req/2,
          send_req/3,
          send_req/4,
-         %send_req_direct/4,
-         %send_req_direct/5,
-         %send_req_direct/6,
-         %send_req_direct/7,
-         %stream_next/1,
-         %stream_close/1,
          set_max_sessions/2,
          set_max_pipeline_size/2,
-         %set_dest/3,
          trace_on/0,
          trace_off/0,
          trace_on/1,
@@ -219,68 +212,6 @@ spawn_link_worker_process(Args, Options) ->
 
 stop_worker_process(Conn_pid) ->
     isql_http_client:stop(Conn_pid).
-
-%% TODO dont know to do yet
-%
-%%% @doc Same as send_req/3 except that the first argument is the PID
-%%% returned by spawn_worker_process/2 or spawn_link_worker_process/2
-%send_req_direct(Conn_pid, Url, Headers, Method) ->
-%    send_req_direct(Conn_pid, Url, Headers, Method, [], []).
-%
-%%% @doc Same as send_req/4 except that the first argument is the PID
-%%% returned by spawn_worker_process/2 or spawn_link_worker_process/2
-%send_req_direct(Conn_pid, Url, Headers, Method, Body) ->
-%    send_req_direct(Conn_pid, Url, Headers, Method, Body, []).
-%
-%%% @doc Same as send_req/5 except that the first argument is the PID
-%%% returned by spawn_worker_process/2 or spawn_link_worker_process/2
-%send_req_direct(Conn_pid, Url, Headers, Method, Body, Options) ->
-%    send_req_direct(Conn_pid, Url, Headers, Method, Body, Options, 30000).
-%
-%%% @doc Same as send_req/6 except that the first argument is the PID
-%%% returned by spawn_worker_process/2 or spawn_link_worker_process/2
-%send_req_direct(Conn_pid, Url, Headers, Method, Body, Options, Timeout) ->
-%    case catch parse_url(Url) of
-%        #url{host = Host,
-%             port = Port} = Parsed_url ->
-%            Options_1 = merge_options(Host, Port, Options),
-%            case do_send_req(Conn_pid, Parsed_url, Headers, Method, Body, Options_1, Timeout) of
-%                {error, {'EXIT', {noproc, _}}} ->
-%                    {error, worker_is_dead};
-%                Ret ->
-%                    Ret
-%            end;
-%        Err ->
-%            {error, {url_parsing_failed, Err}}
-%    end.
-%
-%%% @doc Tell ibrowse to stream the next chunk of data to the
-%%% caller. Should be used in conjunction with the
-%%% <code>stream_to</code> option
-%%% @spec stream_next(Req_id :: req_id()) -> ok | {error, unknown_req_id}
-%stream_next(Req_id) ->    
-%    case ets:lookup(isql_stream, {req_id_pid, Req_id}) of
-%        [] ->
-%            {error, unknown_req_id};
-%        [{_, Pid}] ->
-%            catch Pid ! {stream_next, Req_id},
-%            ok
-%    end.
-%
-%%% @doc Tell ibrowse to close the connection associated with the
-%%% specified stream.  Should be used in conjunction with the
-%%% <code>stream_to</code> option. Note that all requests in progress on
-%%% the connection which is serving this Req_id will be aborted, and an
-%%% error returned.
-%%% @spec stream_close(Req_id :: req_id()) -> ok | {error, unknown_req_id}
-%stream_close(Req_id) ->    
-%    case ets:lookup(isql_stream, {req_id_pid, Req_id}) of
-%        [] ->
-%            {error, unknown_req_id};
-%        [{_, Pid}] ->
-%            catch Pid ! {stream_close, Req_id},
-%            ok
-%    end.
 
 %% @doc Turn tracing on for the ibrowse process
 trace_on() ->
