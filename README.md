@@ -3,6 +3,7 @@ iSQL
 
 Clone of ibrowse [1] and emysql [2] for pipelined mysql requests.
 Performs load balancing of requests among multiple mysql connections with pipelining.
+Has interface similar to ibrowse.
 Alpha version.
 
   [1]: https://github.com/cmullaparthi/ibrowse
