@@ -52,12 +52,16 @@ test() -&gt;
     SQL = compile_sql(&lt;&lt;"select * from data where id = ? and age &lt; ?"&gt;&gt;, ["a123", 21]),
     {ok, [[&lt;&lt;"a123"&gt;&gt;, &lt;&lt;"Valya"&gt;&gt;, 20],
           [&lt;&lt;"a123"&gt;&gt;, &lt;&lt;"Kolya"&gt;&gt;, 1]]} = sql_execute(SQLEntity, SQL),
-    {ok, 1} = sql_execute(SQLEntity, "insert into data(id, name, age) values('a123', 'Igor', 35)"),
-    {error, "You have an error in your SQL syntax" ++ _} = sql_execute(SQLEntity, "insert into nonexistent(id), values(1)"),
-    {error, {conn_failed, eacces}} = sql_execute(SQLEntity#sql_entity{host = "255.255.255.255"}, "select 2").
+    {ok, 1} = sql_execute(SQLEntity,
+                "insert into data(id, name, age) values('a123', 'Igor', 35)"),
+    {error, "You have an error in your SQL syntax" ++ _} =
+            sql_execute(SQLEntity, "insert into nonexistent(id), values(1)"),
+    {error, {conn_failed, eacces}} =
+            sql_execute(SQLEntity#sql_entity{host = "255.255.255.255"},
+                "select 2").
 </pre>
 
-It's recommended to use SafetyValve [2] to control overall load on database server.
+It's recommended to use SafetyValve [2] to control overall load of database server.
 
 <pre>
 sql_init(Supervisor, SVConfig) -&gt;
