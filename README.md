@@ -1,11 +1,12 @@
 iSQL 
 ====
 
-Clone of ibrowse [1] for pipelined mysql requests.
+Clone of ibrowse [1] and emysql [2] for pipelined mysql requests.
 Performs load balancing of requests among multiple mysql connections with pipelining.
 Alpha version.
 
   [1]: https://github.com/cmullaparthi/ibrowse
+  [2]: https://github.com/Eonblast/Emysql
 
 
 Usage
@@ -61,7 +62,7 @@ test() -&gt;
                 "select 2").
 </pre>
 
-It's recommended to use SafetyValve [2] to control overall load of database server.
+It's recommended to use SafetyValve [3] to control overall load of database server.
 
 <pre>
 sql_init(Supervisor, SVConfig) -&gt;
@@ -87,16 +88,16 @@ sql_execute(SQLEntity, SQL) -&gt;
     end.
 </pre>
 
-  [2]: https://github.com/jlouis/safetyvalve
+  [3]: https://github.com/jlouis/safetyvalve
 
 
 Author
 ------
 
 Igor Milyakov
-[virtan@virtan.com] [3]
+[virtan@virtan.com] [4]
 
-  [3]: mailto:virtan@virtan.com?subject=isql
+  [4]: mailto:virtan@virtan.com?subject=isql
 
 
 License
