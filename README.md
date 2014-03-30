@@ -2,7 +2,7 @@ iSQL
 ====
 
 Clone of ibrowse [1] for pipelined mysql requests.
-Performs load balancing of requests among mysql connections with pipelining.
+Performs load balancing of requests among multiple mysql connections with pipelining.
 Alpha version.
 
   [1]: https://github.com/cmullaparthi/ibrowse
@@ -15,10 +15,10 @@ Usage
 -include("isql.hrl").
 -include("ems.hrl").
 
-init() ->
+init() -&gt;
     application:start(isql).
 
-sql_init() ->
+sql_init() -&gt;
     SQLEntity = #sql_entity{
                     host = "localhost", port = 3306,
                     username = "virtan", password = "virtan.com",
@@ -28,30 +28,30 @@ sql_init() ->
     isql:set_max_pipeline_size(SQLEntity, 10),
     SQLEntity.
 
-sql_execute(SQLEntity, SQL) ->
+sql_execute(SQLEntity, SQL) -&gt;
     case isql:send_req(SQLEntity, SQL) of
-        {ok, #result_packet{rows = Rows}} -> {ok, Rows};
-        {ok, #ok_packet{affected_rows = Affected}} -> {ok, Affected};
-        {ok, #error_packet{msg = Reason}} -> {error, Reason};
-        {error, _} = Error -> Error
+        {ok, #result_packet{rows = Rows}} -&gt; {ok, Rows};
+        {ok, #ok_packet{affected_rows = Affected}} -&gt; {ok, Affected};
+        {ok, #error_packet{msg = Reason}} -&gt; {error, Reason};
+        {error, _} = Error -&gt; Error
     end.
 
-compile_sql(QueryBinary, Args) ->
-    Sd = binary:split(QueryBinary, <<"?">>, [global]),
+compile_sql(QueryBinary, Args) -&gt;
+    Sd = binary:split(QueryBinary, &lt;&lt;"?"&gt;&gt;, [global]),
     case {length(Sd), length(Args)} of
-        {N, M} when N == M + 1 ->
-            Args1 = [ems_util:encode(A, true) || A <- Args],
-            iolist_to_binary(lists:zipwith(fun(A, B) -> [B, A] end, Sd, [<<>> | Args1]));
-        _ ->
+        {N, M} when N == M + 1 -&gt;
+            Args1 = [ems_util:encode(A, true) || A &lt;- Args],
+            iolist_to_binary(lists:zipwith(fun(A, B) -&gt; [B, A] end, Sd, [&lt;&lt;&gt;&gt; | Args1]));
+        _ -&gt;
             throw(sql_wrong_number_of_arguments)
     end.
 
-test() ->
+test() -&gt;
     init(),
     SQLEntity = sql_init(),
-    SQL = compile_sql(<<"select * from data where id = ? and age < ?">>, ["a123", 21]),
-    {ok, [[<<"a123">>, <<"Valya">>, 20],
-          [<<"a123">>, <<"Kolya">>, 1]]} = sql_execute(SQLEntity, SQL),
+    SQL = compile_sql(&lt;&lt;"select * from data where id = ? and age &lt; ?"&gt;&gt;, ["a123", 21]),
+    {ok, [[&lt;&lt;"a123"&gt;&gt;, &lt;&lt;"Valya"&gt;&gt;, 20],
+          [&lt;&lt;"a123"&gt;&gt;, &lt;&lt;"Kolya"&gt;&gt;, 1]]} = sql_execute(SQLEntity, SQL),
     {ok, 1} = sql_execute(SQLEntity, "insert into data(id, name, age) values('a123', 'Igor', 35)"),
     {error, "You have an error in your SQL syntax" ++ _} = sql_execute(SQLEntity, "insert into nonexistent(id), values(1)"),
     {error, {conn_failed, eacces}} = sql_execute(SQLEntity#sql_entity{host = "255.255.255.255"}, "select 2").
@@ -60,7 +60,7 @@ test() ->
 It's recommended to use SafetyValve [2] to control overall load on database server.
 
 <pre>
-sql_init(Supervisor, SVConfig) ->
+sql_init(Supervisor, SVConfig) -&gt;
     SQLEntity = #sql_entity{
                     host = "localhost", port = 3306,
                     username = "virtan", password = "virtan.com",
@@ -73,13 +73,13 @@ sql_init(Supervisor, SVConfig) ->
                 permanent, 10000, worker, [sv_queue]}),
     SQLEntity.
 
-sql_execute(SQLEntity, SQL) ->
-    case sv_run(life_sv, fun() -> isql:send_req(SQLEntity, SQL) end) of
-        {ok, {ok, #result_packet{rows = Rows}}} -> {ok, Rows};
-        {ok, {ok, #ok_packet{affected_rows = Affected}}} -> {ok, Affected};
-        {ok, {ok, #error_packet{msg = Reason}}} -> {error, Reason};
-        {ok, {error, _} = Error} -> Error;
-        {error, _} = Error -> Error
+sql_execute(SQLEntity, SQL) -&gt;
+    case sv_run(life_sv, fun() -&gt; isql:send_req(SQLEntity, SQL) end) of
+        {ok, {ok, #result_packet{rows = Rows}}} -&gt; {ok, Rows};
+        {ok, {ok, #ok_packet{affected_rows = Affected}}} -&gt; {ok, Affected};
+        {ok, {ok, #error_packet{msg = Reason}}} -&gt; {error, Reason};
+        {ok, {error, _} = Error} -&gt; Error;
+        {error, _} = Error -&gt; Error
     end.
 </pre>
 
