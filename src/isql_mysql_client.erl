@@ -35,7 +35,7 @@
         ]).
 
 -include("isql.hrl").
--include("emysql.hrl").
+-include("ems.hrl").
 -include_lib("kernel/include/inet.hrl").
 
 -record(state, {
@@ -235,8 +235,8 @@ state_protocol(#state{protocol_handler = ProtocolHandler, packet = Packet} = Sta
     end.
 
 protocol_generic(#packet{seq_num = SeqNum, data = <<0:8, Rest/binary>>}, #state{response = RQ} = State) ->
-    {AffectedRows, Rest1} = emysql_util:length_coded_binary(Rest),
-    {InsertId, Rest2} = emysql_util:length_coded_binary(Rest1),
+    {AffectedRows, Rest1} = ems_util:length_coded_binary(Rest),
+    {InsertId, Rest2} = ems_util:length_coded_binary(Rest1),
     <<ServerStatus:16/little, WarningCount:16/little, Msg/binary>> = Rest2,
     RQ_1 = queue:in(#ok_packet{
                        seq_num = SeqNum,
@@ -273,12 +273,12 @@ protocol_generic(#packet{seq_num = SeqNum, data = <<255:8, ErrNo:16/little, Msg/
                        msg = binary_to_list(Msg)}, RQ),
     protocol_continuation(State#state{response = RQ_1, server_status = ?SERVER_NO_STATUS});
 protocol_generic(#packet{seq_num = SeqNum, data = Data}, State) ->
-    {FieldCount, Rest1} = emysql_util:length_coded_binary(Data),
-    {Extra, _} = emysql_util:length_coded_binary(Rest1),
+    {FieldCount, Rest1} = ems_util:length_coded_binary(Data),
+    {Extra, _} = ems_util:length_coded_binary(Rest1),
     change_state(header, change_protocol(fields, State#state{seq_num = SeqNum + 1, mysql_extra = Extra, field_count = FieldCount})).
 
 protocol_continuation(#state{server_status = ServerStatus, response = RQ} = State) ->
-    do_trace("emysql returned good body ~1000p, ~1000p.~n", [RQ, ServerStatus]),
+    do_trace("ems returned good body ~1000p, ~1000p.~n", [RQ, ServerStatus]),
     case ServerStatus band ?SERVER_MORE_RESULTS_EXIST of
         0 ->
             Reply = simplify_reply(queue:to_list(RQ)),
@@ -295,15 +295,15 @@ protocol_fields(#packet{seq_num = SeqNum1, data = <<?RESP_EOF, _/binary>>},
     protocol_fields_continuation(State#state{seq_num = SeqNum1});
 protocol_fields(#packet{seq_num = SeqNum1, data = Data},
                 #state{fields_queue = Q, fields_key = Key} = State) ->
-    {Catalog, Rest2} = emysql_util:length_coded_string(Data),
-    {Db, Rest3} = emysql_util:length_coded_string(Rest2),
-    {Table, Rest4} = emysql_util:length_coded_string(Rest3),
-    {OrgTable, Rest5} = emysql_util:length_coded_string(Rest4),
-    {Name, Rest6} = emysql_util:length_coded_string(Rest5),
-    {OrgName, Rest7} = emysql_util:length_coded_string(Rest6),
+    {Catalog, Rest2} = ems_util:length_coded_string(Data),
+    {Db, Rest3} = ems_util:length_coded_string(Rest2),
+    {Table, Rest4} = ems_util:length_coded_string(Rest3),
+    {OrgTable, Rest5} = ems_util:length_coded_string(Rest4),
+    {Name, Rest6} = ems_util:length_coded_string(Rest5),
+    {OrgName, Rest7} = ems_util:length_coded_string(Rest6),
     <<_:1/binary, CharSetNr:16/little, Length:32/little, Rest8/binary>> = Rest7,
     <<Type:8/little, Flags:16/little, Decimals:8/little, _:2/binary, Rest9/binary>> = Rest8,
-    {Default, _} = emysql_util:length_coded_binary(Rest9),
+    {Default, _} = ems_util:length_coded_binary(Rest9),
     Field = #field{
                seq_num = SeqNum1,
                catalog = Catalog,
@@ -336,7 +336,7 @@ protocol_rows(#packet{seq_num = SeqNum1, data = <<?RESP_EOF, _/binary>>},
     protocol_rows_continuation(State#state{seq_num = SeqNum1, server_status = ?SERVER_NO_STATUS});
 protocol_rows(#packet{seq_num = SeqNum1, data = RowData},
               #state{rows_queue = Q, fields_key = Key, fields_queue = FieldList} = State) ->
-    Row = emysql_tcp:decode_row_data(RowData, FieldList, []),
+    Row = ems_tcp:decode_row_data(RowData, FieldList, []),
     change_state(header, State#state{seq_num = SeqNum1, rows_queue = queue:in(Row, Q), fields_key = Key + 1}).
 
 protocol_rows_continuation(#state{seq_num = SeqNum1, fields_queue = FieldList,
@@ -391,20 +391,20 @@ do_connect(#sql_entity{host = Host, port = Port, username = Username, password =
         {ok, Sock} ->
             do_trace("Connection is opened~n", []),
             try
-                case emysql_auth:do_handshake(Sock, Username, Password) of
+                case ems_auth:do_handshake(Sock, Username, Password) of
                     Greeting when is_record(Greeting, greeting) ->
                         do_trace("MySQL greeting: ~1000.p~n", [Greeting]),
-                        Connection = #emysql_connection{
+                        Connection = #ems_connection{
                                         socket = Sock,
                                         version = Greeting#greeting.server_version,
                                         thread_id = Greeting#greeting.thread_id,
                                         caps = Greeting#greeting.caps,
                                         language = Greeting#greeting.language
                                        },
-                        case emysql_conn:set_database(Connection, Database) of
+                        case ems_conn:set_database(Connection, Database) of
                             OK1 when is_record(OK1, ok_packet) ->
                                 do_trace("MySQL database set~n", []),
-                                case emysql_conn:set_encoding(Connection, Encoding) of
+                                case ems_conn:set_encoding(Connection, Encoding) of
                                     OK2 when is_record(OK2, ok_packet) ->
                                         do_trace("MySQL encoding set~n", []),
                                         {ok, Connection};
@@ -474,14 +474,14 @@ filter_sock_options(Opts) ->
                  end, Opts).
 
 do_close(#state{connection = undefined})            ->  ok;
-do_close(#state{connection = #emysql_connection{socket = undefined}})            ->  ok;
-do_close(#state{connection = #emysql_connection{socket = Sock}}) ->  catch gen_tcp:close(Sock).
+do_close(#state{connection = #ems_connection{socket = undefined}})            ->  ok;
+do_close(#state{connection = #ems_connection{socket = Sock}}) ->  catch gen_tcp:close(Sock).
 
 active_once(#state{connection = undefined}) ->
     do_trace("Error! Activating undefined connection.~n", []);
-active_once(#state{connection = #emysql_connection{socket = undefined}}) ->
+active_once(#state{connection = #ems_connection{socket = undefined}}) ->
     do_trace("Error! Activating undefined socket.~n", []);
-active_once(#state{connection = #emysql_connection{socket = Socket}}) ->
+active_once(#state{connection = #ems_connection{socket = Socket}}) ->
     do_trace("Activating socket.~n", []),
     do_setopts(Socket, [{active, once}]).
 
@@ -494,7 +494,7 @@ send_req_1(From, SQL, Options, Timeout,
     Conn_timeout = isql_lib:get_value(connect_timeout, Options, Timeout),
     case do_connect(Entity, Options, State, Conn_timeout) of
         {ok, Connection} ->
-            do_trace("Connected! Socket: ~1000.p~n", [Connection#emysql_connection.socket]),
+            do_trace("Connected! Socket: ~1000.p~n", [Connection#ems_connection.socket]),
             State_3 = State#state{connection = Connection, connect_timeout = Conn_timeout},
             send_req_1(From, SQL, Options, Timeout, State_3);
         Err ->
@@ -530,10 +530,10 @@ send_req_1(From, SQL, Options, Timeout,
                      },
     State_1 = State#state{reqs=queue:in(NewReq, State#state.reqs)},
     do_trace("requests queue of size ~b~n", [queue:len(State#state.reqs)]),
-    Packet = <<?COM_QUERY, (emysql_util:any_to_binary(SQL))/binary>>,
-    do_setopts(Connection#emysql_connection.socket, Caller_socket_options),
+    Packet = <<?COM_QUERY, (ems_util:any_to_binary(SQL))/binary>>,
+    do_setopts(Connection#ems_connection.socket, Caller_socket_options),
     do_trace("sending packet ~1000p, ~1000p~n", [Connection, Packet]),
-    case catch emysql_tcp:send_packet(Connection#emysql_connection.socket, Packet, 0) of
+    case catch ems_tcp:send_packet(Connection#ems_connection.socket, Packet, 0) of
         ok ->
             State_2 = inc_pipeline_counter(State_1),
             active_once(State_2),

@@ -177,7 +177,7 @@ set_max_sessions(Entity, Max) when is_integer(Max), Max > 0 ->
 set_max_pipeline_size(Entity, Max) when is_integer(Max), Max > 0 ->
     gen_server:call(?MODULE, {set_config_value, {max_pipeline_size, Entity}, Max}).
 
-do_send_req(Conn_Pid, EntityHT, SQL, Options, Timeout) ->
+do_send_req(Conn_Pid, _EntityHT, SQL, Options, Timeout) ->
     case catch isql_mysql_client:send_req(Conn_Pid, ensure_bin(SQL),
                                           Options, Timeout) of
         {'EXIT', {timeout, _}} ->
@@ -351,7 +351,7 @@ show_dest_status(Entity) ->
     end.
 
 get_metrics() ->
-    Dests = lists:filter(fun({lb_pid, Entity, _}) ->
+    Dests = lists:filter(fun({lb_pid, _Entity, _}) ->
                                  true;
                             (_) ->
                                  false
@@ -603,7 +603,7 @@ handle_info({trace, Bool}, State) ->
     {noreply, State};
 
 handle_info({trace, Bool, Entity}, State) ->
-    Fun = fun(#lb_pid{entity = Entity, pid = Pid}, _) -> 
+    Fun = fun(#lb_pid{entity = _Entity, pid = Pid}, _) -> 
                   catch Pid ! {trace, Bool};
              (_, Acc) ->
                   Acc

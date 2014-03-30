@@ -1,4 +1,4 @@
--record(emysql_connection, {id, socket, version, thread_id, caps, language, locked_at, alive=true}).
+-record(ems_connection, {id, socket, version, thread_id, caps, language, locked_at, alive=true}).
 -record(greeting, {protocol_version, server_version, thread_id, salt1, salt2, caps, caps_high, language, status, seq_num, plugin}).
 -record(field, {seq_num, catalog, db, table, org_table, name, org_name, type, default, charset_nr, length, flags, decimals}).
 -record(packet, {size, seq_num, data}).

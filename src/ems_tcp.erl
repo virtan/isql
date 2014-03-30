@@ -26,10 +26,10 @@
 %% FROM,  OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR
 %% OTHER DEALINGS IN THE SOFTWARE.
 
--module(emysql_tcp).
+-module(ems_tcp).
 -export([send_and_recv_packet/3, send_packet/3, recv_packet/1, response/2, response_list/2, decode_row_data/3]).
 
--include("emysql.hrl").
+-include("ems.hrl").
 
 -define(PACKETSIZE, 1460).
 
@@ -74,11 +74,11 @@ recv_packet(Sock) ->
 % OK response: first byte 0. See -1-
 response(_Sock, #packet{seq_num = SeqNum, data = <<0:8, Rest/binary>>}=_Packet) ->
 	%-% io:format("~nresponse (OK): ~p~n", [_Packet]),
-	{AffectedRows, Rest1} = emysql_util:length_coded_binary(Rest),
-	{InsertId, Rest2} = emysql_util:length_coded_binary(Rest1),
+	{AffectedRows, Rest1} = ems_util:length_coded_binary(Rest),
+	{InsertId, Rest2} = ems_util:length_coded_binary(Rest1),
 	<<ServerStatus:16/little, WarningCount:16/little, Msg/binary>> = Rest2, % (*)!
 	%-% io:format("- warnings: ~p~n", [WarningCount]),
-	%-% io:format("- server status: ~p~n", [emysql_conn:hstate(ServerStatus)]),
+	%-% io:format("- server status: ~p~n", [ems_conn:hstate(ServerStatus)]),
 	{ #ok_packet{
 		seq_num = SeqNum,
 		affected_rows = AffectedRows,
@@ -99,7 +99,7 @@ response(_Sock, #packet{seq_num = SeqNum, data = <<?RESP_EOF:8>>}=_Packet) ->
 response(_Sock, #packet{seq_num = SeqNum, data = <<?RESP_EOF:8, WarningCount:16/little, ServerStatus:16/little>>}=_Packet) -> % (*)!
 	%-% io:format("~nresponse (EOF v 4.1), Warn Count: ~p, Status ~p, Raw: ~p~n", [WarningCount, ServerStatus, _Packet]),
 	%-% io:format("- warnings: ~p~n", [WarningCount]),
-	%-% io:format("- server status: ~p~n", [emysql_conn:hstate(ServerStatus)]),
+	%-% io:format("- server status: ~p~n", [ems_conn:hstate(ServerStatus)]),
 	{ #eof_packet{
 		seq_num = SeqNum,
 		status = ServerStatus,
@@ -129,8 +129,8 @@ response(_Sock, #packet{seq_num = SeqNum, data = <<255:8, ErrNo:16/little, Msg/b
 % DATA response.
 response(Sock, #packet{seq_num = SeqNum, data = Data}=_Packet) ->
 	%-% io:format("~nresponse (DATA): ~p~n", [_Packet]),
-	{FieldCount, Rest1} = emysql_util:length_coded_binary(Data),
-	{Extra, _} = emysql_util:length_coded_binary(Rest1),
+	{FieldCount, Rest1} = ems_util:length_coded_binary(Data),
+	{Extra, _} = ems_util:length_coded_binary(Rest1),
 	{SeqNum1, FieldList} = recv_field_list(Sock, SeqNum+1),
 	if
 		length(FieldList) =/= FieldCount ->
@@ -205,21 +205,21 @@ recv_field_list(Sock, SeqNum) ->
 recv_field_list(Sock, _SeqNum, Q, Key) ->
 	case recv_packet(Sock) of
 		#packet{seq_num = SeqNum1, data = <<?RESP_EOF, _WarningCount:16/little, _ServerStatus:16/little>>} -> % (*)!
-			%-% io:format("- eof: ~p~n", [emysql_conn:hstate(_ServerStatus)]),
+			%-% io:format("- eof: ~p~n", [ems_conn:hstate(_ServerStatus)]),
 			{SeqNum1, queue:to_list(Q)};
 		#packet{seq_num = SeqNum1, data = <<?RESP_EOF, _/binary>>} ->
 			%-% io:format("- eof~n", []),
 			{SeqNum1, queue:to_list(Q)};
 		#packet{seq_num = SeqNum1, data = Data} ->
-			{Catalog, Rest2} = emysql_util:length_coded_string(Data),
-			{Db, Rest3} = emysql_util:length_coded_string(Rest2),
-			{Table, Rest4} = emysql_util:length_coded_string(Rest3),
-			{OrgTable, Rest5} = emysql_util:length_coded_string(Rest4),
-			{Name, Rest6} = emysql_util:length_coded_string(Rest5),
-			{OrgName, Rest7} = emysql_util:length_coded_string(Rest6),
+			{Catalog, Rest2} = ems_util:length_coded_string(Data),
+			{Db, Rest3} = ems_util:length_coded_string(Rest2),
+			{Table, Rest4} = ems_util:length_coded_string(Rest3),
+			{OrgTable, Rest5} = ems_util:length_coded_string(Rest4),
+			{Name, Rest6} = ems_util:length_coded_string(Rest5),
+			{OrgName, Rest7} = ems_util:length_coded_string(Rest6),
 			<<_:1/binary, CharSetNr:16/little, Length:32/little, Rest8/binary>> = Rest7,
 			<<Type:8/little, Flags:16/little, Decimals:8/little, _:2/binary, Rest9/binary>> = Rest8,
-			{Default, _} = emysql_util:length_coded_binary(Rest9),
+			{Default, _} = ems_util:length_coded_binary(Rest9),
 			Field = #field{
 				seq_num = SeqNum1,
 				catalog = Catalog,
@@ -245,7 +245,7 @@ recv_row_data(Sock, FieldList, _SeqNum, Q, Key) ->
 	%-% io:format("~nreceive row ~p: ", [Key]),
 	case recv_packet(Sock) of
 		#packet{seq_num = SeqNum1, data = <<?RESP_EOF, _WarningCount:16/little, ServerStatus:16/little>>} ->
-			%-% io:format("- eof: ~p~n", [emysql_conn:hstate(ServerStatus)]),
+			%-% io:format("- eof: ~p~n", [ems_conn:hstate(ServerStatus)]),
 			{SeqNum1, queue:to_list(Q), ServerStatus};
 		#packet{seq_num = SeqNum1, data = <<?RESP_EOF, _/binary>>} ->
 			%-% io:format("- eof.~n", []),
@@ -259,7 +259,7 @@ recv_row_data(Sock, FieldList, _SeqNum, Q, Key) ->
 decode_row_data(<<>>, [], Acc) ->
 	lists:reverse(Acc);
 decode_row_data(Bin, [Field|Rest], Acc) ->
-	{Data, Tail} = emysql_util:length_coded_string(Bin),
+	{Data, Tail} = ems_util:length_coded_string(Bin),
 	decode_row_data(Tail, Rest, [type_cast_row_data(Data, Field)|Acc]).
 
 type_cast_row_data(undefined, _) ->
