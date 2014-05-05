@@ -70,7 +70,6 @@ send_req(Entity, SQL) ->
 %%          {stream_chunk_size, integer()}     |
 %%          {max_pipeline_size, integer()}     |
 %%          {trace, boolean()}                 | 
-%%          {pool_name, atom()}                |
 %%          {save_response_to_file, srtf()}    |
 %%          {stream_to, stream_to()}           |
 %%          {inactivity_timeout, integer()}    |

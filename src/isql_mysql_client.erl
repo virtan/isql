@@ -95,13 +95,15 @@ start(Args) ->
     start(Args, []).
 
 start(Args, Options) ->
-    gen_server:start(?MODULE, Args, Options).
+    {[ControllingProcess], Options1} = proplists:split(Options, [controlling_process]),
+    gen_server:start(?MODULE, [Args, ControllingProcess], Options1).
 
 start_link(Args) ->
     start_link(Args, []).
 
 start_link(Args, Options) ->
-    gen_server:start_link(?MODULE, Args, Options).
+    {[ControllingProcess], Options1} = proplists:split(Options, [controlling_process]),
+    gen_server:start_link(?MODULE, [Args, ControllingProcess], Options1).
 
 stop(Conn_pid) ->
     case catch gen_server:call(Conn_pid, stop) of
@@ -117,13 +119,18 @@ send_req(Conn_Pid, SQL, Options, Timeout) ->
       Conn_Pid,
       {send_req, {SQL, Options, Timeout}}, Timeout).
 
+init([RestOptions, [{controlling_process, Pid}]]) ->
+    monitor(process, Pid),
+    init(RestOptions);
+init([RestOptions, _]) ->
+    init(RestOptions);
 init({Lb_Tid, #sql_entity{} = Entity}) ->
     State = #state{entity = Entity,
                    lb_ets_tid = Lb_Tid},
     put(isql_trace_token, [Entity]),
     put(my_trace_flag, isql_lib:get_trace_status(Entity)),
     {ok, set_inac_timer(reset_state(State))};
-init(Entity) ->
+init(#sql_entity{} = Entity) ->
     State = #state{entity = Entity},
     put(isql_trace_token, [Entity]),
     put(my_trace_flag, isql_lib:get_trace_status(Entity)),
@@ -177,6 +184,12 @@ handle_info(timeout, State) ->
 handle_info({trace, Bool}, State) ->
     put(my_trace_flag, Bool),
     {noreply, State};
+
+handle_info({'DOWN', _MonitorRef, _Type, _Object, _Info}, State) ->
+    do_trace("Controlling process down!~n", []),
+    shutting_down(State),
+    do_error_reply(State, controlling_process_death),
+    {stop, normal, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -382,7 +395,7 @@ handle_sock_closed(#state{cur_req = undefined} = State) ->
     shutting_down(State);
 
 handle_sock_closed(#state{} = State) ->
-	do_error_reply(State, connection_closed).
+    do_error_reply(State, connection_closed).
 
 do_connect(#sql_entity{host = Host, port = Port, username = Username, password = Password,
                        database = Database, encoding = Encoding} = Entity,

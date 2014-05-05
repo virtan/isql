@@ -7,7 +7,8 @@
           username,
           password,
           database,
-          encoding
+          encoding,
+          pool = undefined
 }).
 
 -record(lb_pid, {entity, pid}).

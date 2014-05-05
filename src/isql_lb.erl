@@ -111,7 +111,7 @@ handle_info({'EXIT', _Pid, _Reason}, #state{ets_tid = undefined} = State) ->
 handle_info({'EXIT', Pid, _Reason},
 	    #state{num_cur_sessions = Cur,
 		   ets_tid = Tid} = State) ->
-    ets:match_delete(Tid, {{'_', Pid}, '_'}),
+    ets:match_delete(Tid, {Pid, '_', '_'}),
     Cur_1 = Cur - 1,
     case Cur_1 of
 		  0 ->
@@ -126,7 +126,7 @@ handle_info({trace, Bool}, #state{ets_tid = undefined} = State) ->
     {noreply, State};
 
 handle_info({trace, Bool}, #state{ets_tid = Tid} = State) ->
-    ets:foldl(fun({{_, Pid}, _}, Acc) when is_pid(Pid) ->
+    ets:foldl(fun({Pid, _, _}, Acc) when is_pid(Pid) ->
 		      catch Pid ! {trace, Bool},
 		      Acc;
 		 (_, Acc) ->
