@@ -187,7 +187,7 @@ do_send_req(Conn_Pid, _EntityHT, SQL, Options, Timeout) ->
         Ret -> Ret
     end.
 
-ensure_bin(L) when is_list(L)                     -> list_to_binary(L);
+ensure_bin(L) when is_list(L)                     -> unicode:characters_to_binary(L);
 ensure_bin(B) when is_binary(B)                   -> B;
 ensure_bin(Fun) when is_function(Fun)             -> Fun;
 ensure_bin({Fun}) when is_function(Fun)           -> Fun;
