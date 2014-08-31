@@ -209,7 +209,7 @@ two_digits(Num) ->
 quote(String) when is_list(String) ->
 	[39 | lists:reverse([39 | quote(String, [])])]; %% 39 is $'
 quote(Bin) when is_binary(Bin) ->
-	list_to_binary(quote(binary_to_list(Bin))).
+	unicode:characters_to_binary(quote(unicode:characters_to_list(Bin))).
 	% note: this is a bytewise inspection that works for unicode, too.
 
 %% @doc  Make MySQL-safe backslash escapes before 10, 13, \, 26, 34, 39. 
